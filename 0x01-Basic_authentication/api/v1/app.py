@@ -1,84 +1,49 @@
 #!/usr/bin/env python3
+""" Module of Index views
 """
-Route module for the API
-"""
-from os import getenv
+from flask import jsonify, abort
 from api.v1.views import app_views
-from flask import Flask, jsonify, abort, request
-from flask_cors import (CORS, cross_origin)
-import os
 
 
-app = Flask(__name__)
-app.register_blueprint(app_views)
-CORS(app, resources={r"/api/v1/*": {"origins": "*"}})
-auth = None
-
-AUTH_TYPE = os.getenv("AUTH_TYPE")
-
-# check the AUTH_TYPE
-if AUTH_TYPE == 'auth':
-    from api.v1.auth.auth import Auth
-    auth = Auth()
-elif AUTH_TYPE == 'basic_auth':
-    from api.v1.auth.basic_auth import BasicAuth
-    auth = BasicAuth()
-
-
-@app.before_request
-def before_request():
+# unauthorized access
+@app_views.route('/unauthorized', methods=['GET'], strict_slashes=False)
+def unauthorized() -> str:
     """_summary_
-
-    Returns:
-        _type_: _description_
-    """
-    if auth is None:
-        pass
-    else:
-        excluded_list = ['/api/v1/status/',
-                         '/api/v1/unauthorized/', '/api/v1/forbidden/']
-
-        if auth.require_auth(request.path, excluded_list):
-            if auth.authorization_header(request) is None:
-                abort(401, description="Unauthorized")
-            if auth.current_user(request) is None:
-                abort(403, description='Forbidden')
-
-
-@app.errorhandler(404)
-def not_found(error) -> str:
-    """ Not found handler
-    """
-    return jsonify({"error": "Not found"}), 404
-
-
-@app.errorhandler(401)
-def unauthorized(error) -> str:
-    """_summary_
-
-    Args:
-        error (_type_): _description_
 
     Returns:
         str: _description_
     """
-    return jsonify({"error": "Unauthorized"}), 401
+    abort(401, description='Unauthorized')
+
+# forbidden
 
 
-@app.errorhandler(403)
-def forbidden(error) -> str:
+@app_views.route('/forbidden', methods=['GET'], strict_slashes=False)
+def forbidden() -> str:
     """_summary_
-
-    Args:
-        error (_type_): _description_
 
     Returns:
         str: _description_
     """
-    return jsonify({"error": "Forbidden"}), 403
+    abort(403, description='Forbidden')
 
 
-if __name__ == "__main__":
-    host = getenv("API_HOST", "0.0.0.0")
-    port = getenv("API_PORT", "5000")
-    app.run(host=host, port=port)
+@app_views.route('/status', methods=['GET'], strict_slashes=False)
+def status() -> str:
+    """ GET /api/v1/status
+    Return:
+      - the status of the API
+    """
+    return jsonify({"status": "OK"})
+
+
+@app_views.route('/stats/', strict_slashes=False)
+def stats() -> str:
+    """ GET /api/v1/stats
+    Return:
+      - the number of each objects
+    """
+    from models.user import User
+    stats = {}
+    stats['users'] = User.count()
+    return jsonify(stats)
